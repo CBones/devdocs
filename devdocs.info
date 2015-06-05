@@ -1,0 +1,8 @@
+name = Developer Documentation
+description = "Automatic Developer Documentation"
+core = 7.x
+
+dependencies[] = markdown
+
+files[] = DevdocsStreamWrapper.inc
+

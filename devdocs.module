@@ -1,0 +1,349 @@
+<?php
+
+/**
+ * @file
+ */
+
+
+function devdocs_menu() {
+  $items = array();
+
+  $items['system/docs'] = array(
+    'title' => 'File download',
+    'page callback' => '_devdocs_file_download',
+    'page arguments' => array('docs'),
+    'access arguments' => array('access developer documentation'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['admin/reports/devdocs'] = array(
+    'title' => 'Developer documentation',
+    'page callback' => 'devdocs_page',
+    'access arguments' => array('configure developer documentation'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+  $items['admin/reports/devdocs/docs'] = array(
+    'title' => 'Developer documentation',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => 0,
+  );
+  $items['admin/reports/devdocs/files'] = array(
+    'title' => 'Files',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('devdocs_files_form'),
+    'access arguments' => array('configure developer documentation'),
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['admin/reports/devdocs/settings'] = array(
+    'title' => 'Settings',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('devdocs_settings_form'),
+    'access arguments' => array('configure developer documentation'),
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  return $items;
+}
+
+
+/**
+ * Implementation of hook_permission().
+ */
+function devdocs_permission() {
+  return array(
+    'access developer documentation' => array(
+      'title' => t('Access developer documentation'),
+      'description' => t(''),
+    ),
+    'configure developer documentation' => array(
+      'title' => t('Configure developer documentation'),
+      'description' => t(''),
+    ),
+  );
+}
+
+
+/**
+ * Implements hook_stream_wrappers().
+ */
+function devdocs_stream_wrappers() {
+  $wrappers = array();
+
+  // Only register the private file stream wrapper if a file path has been set.
+  if (variable_get('devdocs_path', FALSE)) {
+    $wrappers['docs'] = array(
+      'name' => t('Developer Documentation files'),
+      'class' => 'DevdocsStreamWrapper',
+      'description' => t('Developer Documentation local files served by Drupal.'),
+      'type' => STREAM_WRAPPERS_LOCAL_NORMAL,
+      'dynamic' => TRUE,
+    );
+  }
+
+  return $wrappers;
+}
+
+/**
+ * File download for dynamic files
+ */
+function _devdocs_file_download() {
+  // Merge remainder of arguments from GET['q'], into relative file path.
+  $args = func_get_args();
+  global $user;
+  $params = drupal_get_query_parameters($query = NULL, $exclude = array('q'));
+  $op = isset($params['op']) ? $params['op'] : NULL;
+
+  $scheme = array_shift($args);
+  $target = implode('/', $args);
+  $uri = $scheme . '://' . $target;
+
+  if (file_stream_wrapper_valid_scheme($scheme) && file_exists($uri)) {
+    file_transfer($uri, $headers);
+  }
+  else {
+    drupal_not_found();
+  }
+  drupal_exit();
+}
+
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function devdocs_form_system_file_system_settings_alter(&$form, $form_state, $form_id) {
+
+  $form['devdocs_path'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Developer Documentation directory path'),
+    '#default_value' => variable_get('devdocs_path', ''),
+    '#maxlength' => 255,
+    '#description' => t('An existing local file system path for storing Developer Documentation files. It should be writable by Drupal and not accessible over the web. See the online handbook for <a href="@handbook">more information about securing private files</a>.', array('@handbook' => 'http://drupal.org/documentation/modules/file')),
+    '#after_build' => array('system_check_directory'),
+  );
+
+  // rearrange form
+  if (isset($form['actions'])) {
+    $form['actions']['#weight'] = 50;
+  }
+  if (isset($form['file_default_scheme'])) {
+    $form['file_default_scheme']['#weight'] = 10;
+  }
+}
+
+/**
+ * Form definition; admin settings.
+ */
+function devdocs_settings_form($form, &$form_state) {
+  $directory = variable_get('devdocs_location', '');
+  if (!empty($directory) && file_valid_uri($directory)) {
+    file_prepare_directory($directory, FILE_CREATE_DIRECTORY);
+  }
+  $form['devdocs_location'] = array(
+    '#type' => 'textfield',
+    '#title' => 'Documents directory (uri)',
+    '#default_value' => variable_get('devdocs_location', '')
+  );
+
+  return system_settings_form($form);
+}
+
+function devdocs_page() {
+  $output = '';
+  $url = file_create_url(variable_get('devdocs_location', ''));
+  $output .= '<iframe src="'.$url.'/index.html" width="100%" height="500px">/'.$url.'</iframe>';
+  return $output;
+}
+
+
+
+/**
+ * Form definition; admin settings.
+ */
+function devdocs_files_form($form, &$form_state) {
+  $directory = variable_get('devdocs_location', '');
+  file_prepare_directory($directory, FILE_CREATE_DIRECTORY);
+
+  $form['files'] = array(
+    '#type' => 'vertical_tabs',
+  );
+  $files = file_scan_directory($directory, '/\.md/');
+
+  foreach ($files as $uri => $object) {
+    $form['files']['file_'.$object->name] = array(
+      '#type' => 'fieldset',
+      '#title' => $object->name
+    );
+    $markdown = file_get_contents($uri);
+    if (module_exists('markdown')) {
+      $filters = module_invoke('markdown', 'filter_info');
+      $md_info = $filters['filter_markdown'];
+      if (function_exists($md_info['process callback'])) {
+        $function = $md_info['process callback'];
+        $output = filter_xss_admin($function($markdown, NULL));
+      }
+      else {
+        $output = '<pre>' . check_plain($markdown) . '</pre>';
+      }
+    }
+    else {
+      // Nicer output if we wrap it in <pre>?
+      $output = check_plain($markdown);
+    }
+
+    $form['files']['file_'.$object->name]['output'] = array(
+      '#markup' => $output,
+    );
+
+    $form['files']['file_'.$object->name]['edit'] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Edit'),
+      '#collapsible' => TRUE,
+      '#collapsed' => TRUE
+    );
+    $form['files']['file_'.$object->name]['edit']['id_'.$object->name] = array(
+      // '#type' => 'textarea',
+      '#type' => 'text_format',
+      '#base_type' => 'textarea',
+      '#default_value' => $markdown,
+      '#rows' => 10,
+      '#format' => NULL
+    );
+    $form['files']['file_'.$object->name]['edit']['uri_'.$object->name] = array(
+      '#type' => 'hidden',
+      '#value' => $uri,
+    );
+    $form['files']['file_'.$object->name]['edit']['generate_'.$object->name] = array(
+      '#type' => 'radios',
+      '#title' => 'Generate content',
+      '#options' => array(
+        'views' => 'Output Views information',
+        'features' => 'Output Features information',
+      )
+    );
+    $form['files']['file_'.$object->name]['edit']['delete_'.$object->name] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Delete'),
+    );
+
+  }
+
+  $form['new'] = array(
+    '#type' => 'textfield',
+    '#title' => 'New file',
+    '#description' => 'Filename without extension',
+    '#default_value' => ''
+  );
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => 'Saglabāt'
+  );
+
+  // $views = views_get_all_views();
+
+  // foreach ($views as $name => $view) {
+  //   if (!$view->disabled) {
+  //     $enabled_views[$name] = $view;
+  //   }
+  // }
+  // dpm($enabled_views);
+
+  // $features = features_get_features();
+  // dpm($features);
+
+  return $form;
+}
+
+
+function devdocs_files_form_submit($form, &$form_state) {
+
+
+
+  $values = $form_state['values'];
+
+  foreach ($values as $key => $value) {
+
+    if ($key == 'new' && !empty($value)) {
+      $uri = variable_get('devdocs_location', '') . $value . '.md';
+      file_unmanaged_save_data('', $uri, FILE_EXISTS_RENAME);
+    }
+    elseif (substr($key, 0, 3) == 'id_') {
+      $file_name = substr($key, 3);
+      $markdown = $value['value'];
+      $uri = $values['uri_' . $file_name];
+      file_unmanaged_save_data($markdown, $uri, FILE_EXISTS_REPLACE);
+    }
+    elseif (substr($key, 0, 7) == 'delete_' && $value == '1') {
+      $file_name = substr($key, 7);
+      $uri = $values['uri_' . $file_name];
+      file_unmanaged_delete($uri);
+    }
+    elseif (substr($key, 0, 9) == 'generate_') {
+      $file_name = substr($key, 9);
+      switch ($value) {
+        case 'views':
+          $markdown = devdocs_views_info_output();
+          break;
+        case 'features':
+          $markdown = devdocs_features_info_output();
+          break;
+      }
+      $uri = $values['uri_' . $file_name];
+      file_unmanaged_save_data($markdown, $uri, FILE_EXISTS_REPLACE);
+    }
+  }
+  unset($form_state['values']['form_id'], $form_state['values']['form_token'], $form_state['values']['form_build_id']);
+
+
+
+}
+
+function devdocs_views_info_output() {
+  $lines[] = 'Views';
+  $lines[] = '=============';
+  $lines[] = '';
+  $lines[] = 'The following views are used in this project.';
+  $views = views_get_all_views();
+  ksort($views);
+  foreach ($views as $name => $view) {
+    if (!$view->disabled) {
+      $lines[] = '## ' . $view->human_name;
+      $lines[] = '['. $name . ']';
+      $lines[] = $view->description;
+      $lines[] = '';
+      foreach ($view->display as $key => $value) {
+        $lines[] = '####' . $value->display_title;
+        $lines[] = '* ' . $key;
+        $lines[] = '* ' . $value->display_plugin;
+        $lines[] = '';
+      }
+    }
+  }
+  $output = implode(PHP_EOL, $lines);
+  return check_plain($output);
+}
+
+function devdocs_features_info_output() {
+  $lines[] = 'Features';
+  $lines[] = '=============';
+  $lines[] = '';
+  $lines[] = 'The following features are used in this project.';
+  $features = features_get_features();
+  ksort($features);
+  foreach ($features as $name => $feature) {
+    if ($feature->status == '1') {
+      $lines[] = '## ' . $feature->info['name'];
+      $lines[] = '['. $name . ']';
+      $lines[] = '';
+      $lines[] = '* ' . $feature->info['description'];
+      $lines[] = '* ' . $feature->info['package'];
+      $lines[] = '';
+    }
+  }
+  $output = implode(PHP_EOL, $lines);
+  return check_plain($output);
+}
+
+
+
+
+
