@@ -149,8 +149,17 @@ function devdocs_settings_form($form, &$form_state) {
 
 function devdocs_page() {
   $output = '';
-  $url = file_create_url(variable_get('devdocs_location', ''));
-  $output .= '<iframe src="'.$url.'/index.html" width="100%" height="500px">/'.$url.'</iframe>';
+  $url = file_create_url(variable_get('devdocs_location', '')) .'index.html';
+
+  // if (file_exists($url)) {
+    $link = l('Atvērt jaunā logā', $url, array('attributes' => array('target' => '_blank')));
+    $output .= $link;
+    $output .= '<iframe src="' . $url . '" width="100%" height="600px">' . $url . '</iframe>';
+  // }
+  // else {
+  //   drupal_set_message('There is no index.html file in Documents directory.');
+  //   drupal_goto('admin/reports/devdocs/settings');
+  // }
   return $output;
 }
 
@@ -218,6 +227,7 @@ function devdocs_files_form($form, &$form_state) {
       '#options' => array(
         'views' => 'Output Views information',
         'features' => 'Output Features information',
+        'content_types' => 'Output Content Types information',
       )
     );
     $form['files']['file_'.$object->name]['edit']['delete_'.$object->name] = array(
@@ -249,6 +259,17 @@ function devdocs_files_form($form, &$form_state) {
 
   // $features = features_get_features();
   // dpm($features);
+
+  // $entities = entity_get_info();
+  // $bundles = field_info_bundles('node');
+  // $info = node_type_get_types();
+  // $fields_info = field_info_instances('node', 'page');
+  // foreach ($fields_info as $field_name => $value) {
+  //   $field_info = field_info_field($field_name);
+  //   $type = $field_info['type'];
+  //   dpm($field_info);
+  // }
+
 
   return $form;
 }
@@ -285,6 +306,9 @@ function devdocs_files_form_submit($form, &$form_state) {
           break;
         case 'features':
           $markdown = devdocs_features_info_output();
+          break;
+        case 'content_types':
+          $markdown = devdocs_content_types_info_output();
           break;
       }
       $uri = $values['uri_' . $file_name];
@@ -343,6 +367,51 @@ function devdocs_features_info_output() {
   return check_plain($output);
 }
 
+
+function devdocs_content_types_info_output() {
+  $lines[] = 'Content Types';
+  $lines[] = '=============';
+  $lines[] = '';
+  $lines[] = 'The following content types (nodes) are used in this project.';
+  $types = node_type_get_types();
+  ksort($types);
+  foreach ($types as $name => $type) {
+    $lines[] = '## ' . $type->name;
+    // $lines[] = '['. $type->type . ']';
+    $lines[] = '';
+    $lines[] = '* Type: ' . $type->type;
+    $lines[] = '* Module: ' . $type->module;
+    $lines[] = '';
+    if (!empty($type->description)) {
+      $lines[] = $type->description;
+    }
+    else {
+      $lines[] = '[Add Description](/admin/structure/types/manage/'.$type->type.')';
+    }
+
+    $lines[] = 'Field Label  |Name  |Type   |Translatable  ';
+    $lines[] = '-------------|------|-------|--------------';
+    $fields_info = field_info_instances('node', $type->type);
+    foreach ($fields_info as $field_name => $value) {
+      $field_info = field_info_field($field_name);
+      $lines[] = $value['label']. '|' . $field_name . '|' . $field_info['type']. '|' . $field_info['translatable'];
+    }
+
+    // $lines[] = '';
+    // $lines[] = '##### Guidelines';
+    // if (!empty($type->help)) {
+    //   $lines[] = $type->help;
+    // }
+    // else {
+    //   $lines[] = '[Add Guidelines](/admin/structure/types/manage/'.$type->type.')';
+    // }
+    $lines[] = '';
+    $lines[] = '-------------------------------------------------------------------------------';
+    $lines[] = '';
+  }
+  $output = implode(PHP_EOL, $lines);
+  return check_plain($output);
+}
 
 
 
