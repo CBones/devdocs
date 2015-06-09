@@ -134,14 +134,14 @@ function devdocs_form_system_file_system_settings_alter(&$form, $form_state, $fo
  * Form definition; admin settings.
  */
 function devdocs_settings_form($form, &$form_state) {
-  $directory = variable_get('devdocs_location', '');
+  $directory = variable_get('devdocs_location', 'docs://');
   if (!empty($directory) && file_valid_uri($directory)) {
     file_prepare_directory($directory, FILE_CREATE_DIRECTORY);
   }
   $form['devdocs_location'] = array(
     '#type' => 'textfield',
     '#title' => 'Documents directory (uri)',
-    '#default_value' => variable_get('devdocs_location', '')
+    '#default_value' => variable_get('devdocs_location', 'docs://')
   );
 
   return system_settings_form($form);
@@ -149,17 +149,19 @@ function devdocs_settings_form($form, &$form_state) {
 
 function devdocs_page() {
   $output = '';
-  $url = file_create_url(variable_get('devdocs_location', '')) .'index.html';
+  $uri = variable_get('devdocs_location', 'docs://') .'index.html';
+  $url = file_create_url(variable_get('devdocs_location', 'docs://')).'index.html';
 
-  // if (file_exists($url)) {
+  if (file_exists(drupal_realpath($uri))) {
     $link = l('Atvērt jaunā logā', $url, array('attributes' => array('target' => '_blank')));
     $output .= $link;
     $output .= '<iframe src="' . $url . '" width="100%" height="600px">' . $url . '</iframe>';
-  // }
-  // else {
-  //   drupal_set_message('There is no index.html file in Documents directory.');
-  //   drupal_goto('admin/reports/devdocs/settings');
-  // }
+  }
+  else {
+    drupal_set_message('There is no index.html file in Documents directory.');
+    drupal_goto('admin/reports/devdocs/settings');
+  }
+  
   return $output;
 }
 
@@ -169,7 +171,7 @@ function devdocs_page() {
  * Form definition; admin settings.
  */
 function devdocs_files_form($form, &$form_state) {
-  $directory = variable_get('devdocs_location', '');
+  $directory = variable_get('devdocs_location', 'docs://');
   file_prepare_directory($directory, FILE_CREATE_DIRECTORY);
 
   $form['files'] = array(
@@ -198,21 +200,20 @@ function devdocs_files_form($form, &$form_state) {
       // Nicer output if we wrap it in <pre>?
       $output = check_plain($markdown);
     }
-
-    $form['files']['file_'.$object->name]['output'] = array(
-      '#markup' => $output,
-    );
-
+    
     $form['files']['file_'.$object->name]['edit'] = array(
       '#type' => 'fieldset',
       '#title' => t('Edit'),
       '#collapsible' => TRUE,
-      '#collapsed' => TRUE
+      '#collapsed' => TRUE,
     );
+
+    if (strpos($markdown, 'devdocs:locked')) $form['files']['file_'.$object->name]['edit']['#disabled'] = TRUE;
+
     $form['files']['file_'.$object->name]['edit']['id_'.$object->name] = array(
-      // '#type' => 'textarea',
-      '#type' => 'text_format',
-      '#base_type' => 'textarea',
+      '#type' => 'textarea',
+      // '#type' => 'text_format',
+      // '#base_type' => 'textarea',
       '#default_value' => $markdown,
       '#rows' => 10,
       '#format' => NULL
@@ -222,7 +223,7 @@ function devdocs_files_form($form, &$form_state) {
       '#value' => $uri,
     );
     $form['files']['file_'.$object->name]['edit']['generate_'.$object->name] = array(
-      '#type' => 'radios',
+      '#type' => 'select',
       '#title' => 'Generate content',
       '#options' => array(
         'views' => 'Output Views information',
@@ -233,6 +234,10 @@ function devdocs_files_form($form, &$form_state) {
     $form['files']['file_'.$object->name]['edit']['delete_'.$object->name] = array(
       '#type' => 'checkbox',
       '#title' => t('Delete'),
+    );
+
+    $form['files']['file_'.$object->name]['output'] = array(
+      '#markup' => $output,
     );
 
   }
@@ -284,12 +289,12 @@ function devdocs_files_form_submit($form, &$form_state) {
   foreach ($values as $key => $value) {
 
     if ($key == 'new' && !empty($value)) {
-      $uri = variable_get('devdocs_location', '') . $value . '.md';
+      $uri = variable_get('devdocs_location', 'docs://') . $value . '.md';
       file_unmanaged_save_data('', $uri, FILE_EXISTS_RENAME);
     }
     elseif (substr($key, 0, 3) == 'id_') {
       $file_name = substr($key, 3);
-      $markdown = $value['value'];
+      $markdown = $value; //['value'];
       $uri = $values['uri_' . $file_name];
       file_unmanaged_save_data($markdown, $uri, FILE_EXISTS_REPLACE);
     }
