@@ -96,6 +96,7 @@ function _devdocs_file_download() {
   $scheme = array_shift($args);
   $target = implode('/', $args);
   $uri = $scheme . '://' . $target;
+  $headers = array();
 
   if (file_stream_wrapper_valid_scheme($scheme) && file_exists($uri)) {
     file_transfer($uri, $headers);
@@ -134,23 +135,30 @@ function devdocs_form_system_file_system_settings_alter(&$form, $form_state, $fo
  * Form definition; admin settings.
  */
 function devdocs_settings_form($form, &$form_state) {
-  $directory = variable_get('devdocs_location', 'docs://');
+  if (variable_get('devdocs_path', FALSE)) {
+    file_create_htaccess('docs://', TRUE);
+  }
+  else {
+    drupal_set_message('Define Developer documentation system path.');
+  }
+  $directory = 'docs://';
   if (!empty($directory) && file_valid_uri($directory)) {
     file_prepare_directory($directory, FILE_CREATE_DIRECTORY);
   }
-  $form['devdocs_location'] = array(
-    '#type' => 'textfield',
-    '#title' => 'Documents directory (uri)',
-    '#default_value' => variable_get('devdocs_location', 'docs://')
-  );
+  $form = array();
+  // $form['devdocs_location'] = array(
+  //   '#type' => 'textfield',
+  //   '#title' => 'Documents directory (uri)',
+  //   '#default_value' => variable_get('devdocs_location', 'docs://')
+  // );
 
   return system_settings_form($form);
 }
 
 function devdocs_page() {
   $output = '';
-  $uri = variable_get('devdocs_location', 'docs://') .'index.html';
-  $url = file_create_url(variable_get('devdocs_location', 'docs://')).'index.html';
+  $uri = 'docs://index.html';
+  $url = file_create_url('docs://').'index.html';
 
   if (file_exists(drupal_realpath($uri))) {
     $link = l('Atvērt jaunā logā', $url, array('attributes' => array('target' => '_blank')));
@@ -161,7 +169,7 @@ function devdocs_page() {
     drupal_set_message('There is no index.html file in Documents directory.');
     drupal_goto('admin/reports/devdocs/settings');
   }
-  
+
   return $output;
 }
 
@@ -171,7 +179,7 @@ function devdocs_page() {
  * Form definition; admin settings.
  */
 function devdocs_files_form($form, &$form_state) {
-  $directory = variable_get('devdocs_location', 'docs://');
+  $directory = 'docs://';
   file_prepare_directory($directory, FILE_CREATE_DIRECTORY);
 
   $form['files'] = array(
@@ -197,41 +205,52 @@ function devdocs_files_form($form, &$form_state) {
       }
     }
     else {
-      // Nicer output if we wrap it in <pre>?
       $output = check_plain($markdown);
     }
-    
-    $form['files']['file_'.$object->name]['edit'] = array(
+
+    $form['files']['file_'.$object->name]['locked_'.$object->name] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Locked'),
+      '#default_value' => (strpos($markdown, 'devdocs:locked')) ? TRUE : FALSE,
+    );
+
+    $form['files']['file_'.$object->name]['edit_'.$object->name] = array(
       '#type' => 'fieldset',
       '#title' => t('Edit'),
       '#collapsible' => TRUE,
       '#collapsed' => TRUE,
     );
 
-    if (strpos($markdown, 'devdocs:locked')) $form['files']['file_'.$object->name]['edit']['#disabled'] = TRUE;
+    if (strpos($markdown, 'devdocs:locked')) $form['files']['file_'.$object->name]['edit_'.$object->name]['#disabled'] = TRUE;
 
-    $form['files']['file_'.$object->name]['edit']['id_'.$object->name] = array(
+
+
+    $form['files']['file_'.$object->name]['edit_'.$object->name]['id_'.$object->name] = array(
       '#type' => 'textarea',
       // '#type' => 'text_format',
       // '#base_type' => 'textarea',
       '#default_value' => $markdown,
       '#rows' => 10,
-      '#format' => NULL
     );
-    $form['files']['file_'.$object->name]['edit']['uri_'.$object->name] = array(
+
+    $form['files']['file_'.$object->name]['edit_'.$object->name]['uri_'.$object->name] = array(
       '#type' => 'hidden',
       '#value' => $uri,
     );
-    $form['files']['file_'.$object->name]['edit']['generate_'.$object->name] = array(
+    $form['files']['file_'.$object->name]['edit_'.$object->name]['generate_'.$object->name] = array(
       '#type' => 'select',
       '#title' => 'Generate content',
       '#options' => array(
+        '_none' => '-- Select --',
         'views' => 'Output Views information',
         'features' => 'Output Features information',
         'content_types' => 'Output Content Types information',
-      )
+      ),
+      '#ajax' => array(
+        // 'callback' => 'devdocs_form_ajax_callback',
+      ),
     );
-    $form['files']['file_'.$object->name]['edit']['delete_'.$object->name] = array(
+    $form['files']['file_'.$object->name]['edit_'.$object->name]['delete_'.$object->name] = array(
       '#type' => 'checkbox',
       '#title' => t('Delete'),
     );
@@ -253,30 +272,14 @@ function devdocs_files_form($form, &$form_state) {
     '#value' => 'Saglabāt'
   );
 
-  // $views = views_get_all_views();
-
-  // foreach ($views as $name => $view) {
-  //   if (!$view->disabled) {
-  //     $enabled_views[$name] = $view;
-  //   }
-  // }
-  // dpm($enabled_views);
-
-  // $features = features_get_features();
-  // dpm($features);
-
-  // $entities = entity_get_info();
-  // $bundles = field_info_bundles('node');
-  // $info = node_type_get_types();
-  // $fields_info = field_info_instances('node', 'page');
-  // foreach ($fields_info as $field_name => $value) {
-  //   $field_info = field_info_field($field_name);
-  //   $type = $field_info['type'];
-  //   dpm($field_info);
-  // }
-
-
   return $form;
+}
+
+function devdocs_form_ajax_callback($form, $form_state) {
+  $values = $form_state['values'];
+
+  $file_name = substr($form_state['triggering_element']['#name'], 9);
+
 }
 
 
@@ -289,12 +292,24 @@ function devdocs_files_form_submit($form, &$form_state) {
   foreach ($values as $key => $value) {
 
     if ($key == 'new' && !empty($value)) {
-      $uri = variable_get('devdocs_location', 'docs://') . $value . '.md';
+      $uri = 'docs://' . $value . '.md';
       file_unmanaged_save_data('', $uri, FILE_EXISTS_RENAME);
     }
     elseif (substr($key, 0, 3) == 'id_') {
       $file_name = substr($key, 3);
-      $markdown = $value; //['value'];
+      $markdown = '';
+      if (isset($values['locked_' . $file_name]) && $values['locked_' . $file_name] == '1') {
+        if (!strpos($value, 'devdocs:locked')) {
+          $markdown = '<!---devdocs:locked-->' . PHP_EOL;
+        }
+        $markdown .= $value;
+      }
+      elseif (isset($values['locked_' . $file_name]) && $values['locked_' . $file_name] == '0') {
+        $markdown .= $value;
+        if (strpos($value, 'devdocs:locked')) {
+          $markdown = str_replace('<!---devdocs:locked-->' . PHP_EOL, '', $value);
+        }
+      }
       $uri = $values['uri_' . $file_name];
       file_unmanaged_save_data($markdown, $uri, FILE_EXISTS_REPLACE);
     }
@@ -319,6 +334,7 @@ function devdocs_files_form_submit($form, &$form_state) {
       $uri = $values['uri_' . $file_name];
       file_unmanaged_save_data($markdown, $uri, FILE_EXISTS_REPLACE);
     }
+
   }
   unset($form_state['values']['form_id'], $form_state['values']['form_token'], $form_state['values']['form_build_id']);
 
@@ -339,12 +355,12 @@ function devdocs_views_info_output() {
       $lines[] = '['. $name . ']';
       $lines[] = $view->description;
       $lines[] = '';
+      $lines[] = 'Display  |Name  |Display plugin   ';
+      $lines[] = '---------|------|-----------------';
       foreach ($view->display as $key => $value) {
-        $lines[] = '####' . $value->display_title;
-        $lines[] = '* ' . $key;
-        $lines[] = '* ' . $value->display_plugin;
-        $lines[] = '';
+        $lines[] = $value->display_title . '|' . $key . '|' . $value->display_plugin;
       }
+      $lines[] = '';
     }
   }
   $output = implode(PHP_EOL, $lines);
