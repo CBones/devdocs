@@ -139,20 +139,14 @@ function devdocs_settings_form($form, &$form_state) {
     file_create_htaccess('docs://', TRUE);
   }
   else {
-    drupal_set_message('Define Developer documentation system path in '.l('site file system settings', 'admin/config/media/file-system').'. It has to be located outside of publicly accessible webroot to avoid potential data leaks.');
+    drupal_set_message(t('Define Developer documentation system path in <a href="@link">site file system settings</a>. It has to be located outside of publicly accessible webroot to avoid potential data leaks.', array('@link' => '/admin/config/media/file-system')));
   }
   $directory = 'docs://';
   if (!empty($directory) && file_valid_uri($directory)) {
     file_prepare_directory($directory, FILE_CREATE_DIRECTORY);
   }
-  $form = array();
-  // $form['devdocs_location'] = array(
-  //   '#type' => 'textfield',
-  //   '#title' => 'Documents directory (uri)',
-  //   '#default_value' => variable_get('devdocs_location', 'docs://')
-  // );
 
-  return system_settings_form($form);
+  return $form;
 }
 
 function devdocs_page() {
@@ -169,19 +163,18 @@ function devdocs_page() {
     $output .= '<iframe src="' . $url . '" width="100%" height="600px">' . $url . '</iframe>';
   }
   else {
-    drupal_set_message('There is no index.html file in Documentation directory, recreating sample site documentation.');
+    drupal_set_message(t('There is no index.html file in Documentation directory, recreating sample site documentation.'));
     devdocs_recreate();
     // reload page
     drupal_goto('admin/reports/devdocs');
-    
+
   }
 
   return $output;
 }
 
 function devdocs_recreate() {
-  
-  // index.php
+
   file_unmanaged_copy(drupal_get_path('module', 'devdocs') . '/template/index.html', 'docs://index.html', FILE_EXISTS_ERROR);
 
   $template_docs = array('development', 'hacks', 'index', 'modules', 'navigation', 'theme');
@@ -249,12 +242,8 @@ function devdocs_files_form($form, &$form_state) {
 
     if (strpos($markdown, 'devdocs:locked')) $form['files']['file_'.$object->name]['edit_'.$object->name]['#disabled'] = TRUE;
 
-
-
     $form['files']['file_'.$object->name]['edit_'.$object->name]['id_'.$object->name] = array(
       '#type' => 'textarea',
-      // '#type' => 'text_format',
-      // '#base_type' => 'textarea',
       '#default_value' => $markdown,
       '#rows' => 10,
     );
@@ -272,9 +261,6 @@ function devdocs_files_form($form, &$form_state) {
         'features' => 'Output Features information',
         'content_types' => 'Output Content Types information',
       ),
-      '#ajax' => array(
-        // 'callback' => 'devdocs_form_ajax_callback',
-      ),
     );
     $form['files']['file_'.$object->name]['edit_'.$object->name]['delete_'.$object->name] = array(
       '#type' => 'checkbox',
@@ -284,7 +270,6 @@ function devdocs_files_form($form, &$form_state) {
     $form['files']['file_'.$object->name]['output'] = array(
       '#markup' => $output,
     );
-
   }
 
   $form['new'] = array(
@@ -301,17 +286,8 @@ function devdocs_files_form($form, &$form_state) {
   return $form;
 }
 
-function devdocs_form_ajax_callback($form, $form_state) {
-  $values = $form_state['values'];
-
-  $file_name = substr($form_state['triggering_element']['#name'], 9);
-
-}
-
 
 function devdocs_files_form_submit($form, &$form_state) {
-
-
 
   $values = $form_state['values'];
 
@@ -363,10 +339,9 @@ function devdocs_files_form_submit($form, &$form_state) {
 
   }
   unset($form_state['values']['form_id'], $form_state['values']['form_token'], $form_state['values']['form_build_id']);
-
-
-
 }
+
+
 
 function devdocs_views_info_output() {
   $lines[] = 'Views';
@@ -424,7 +399,6 @@ function devdocs_content_types_info_output() {
   ksort($types);
   foreach ($types as $name => $type) {
     $lines[] = '## ' . $type->name;
-    // $lines[] = '['. $type->type . ']';
     $lines[] = '';
     $lines[] = '* Type: ' . $type->type;
     $lines[] = '* Module: ' . $type->module;
@@ -444,14 +418,6 @@ function devdocs_content_types_info_output() {
       $lines[] = $value['label']. '|' . $field_name . '|' . $field_info['type']. '|' . $field_info['translatable'];
     }
 
-    // $lines[] = '';
-    // $lines[] = '##### Guidelines';
-    // if (!empty($type->help)) {
-    //   $lines[] = $type->help;
-    // }
-    // else {
-    //   $lines[] = '[Add Guidelines](/admin/structure/types/manage/'.$type->type.')';
-    // }
     $lines[] = '';
     $lines[] = '-------------------------------------------------------------------------------';
     $lines[] = '';
@@ -459,7 +425,4 @@ function devdocs_content_types_info_output() {
   $output = implode(PHP_EOL, $lines);
   return check_plain($output);
 }
-
-
-
 
