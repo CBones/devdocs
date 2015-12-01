@@ -1,0 +1,5 @@
+name = Developer Documentation Export
+description = "Developer Documentation Export to PDF/HTML"
+core = 7.x
+core = 7.x
+dependencies[] = devdocs

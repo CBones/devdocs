@@ -1,0 +1,144 @@
+<?php
+
+/**
+ * @file
+ */
+
+function devdocs_export_menu() {
+  $items = array();
+
+  $items['system/docs/export/pdf'] = array(
+    'title' => 'File export',
+    'page callback' => '_devdocs_export_pdf_download',
+    'page arguments' => array('docs'),
+    'access arguments' => array('access developer documentation'),
+    'type' => MENU_CALLBACK,
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_libraries_info().
+ */
+function devdocs_export_libraries_info() {
+
+  $libraries = array(
+    'php-markdown' => array(
+      'name' => 'PHP Markdown Extra plugin',
+      'vendor url' => 'https://github.com/michelf/php-markdown/',
+      'download url' => 'https://github.com/michelf/php-markdown/archive/1.4.1.zip',
+      'version' => '1.4.1',
+      'files' => array(
+        'php' => array(
+          'Michelf/MarkdownInterface.php',
+          'Michelf/Markdown.php',
+          'Michelf/MarkdownExtra.php',
+        ),
+      ),
+    ),
+
+    'dompdf' => array(
+      'name' => 'dompdf',
+      'vendor url' => 'http://github.com/dompdf/dompdf',
+      // 'download url' => 'https://github.com/dompdf/dompdf/archive/master.zip', // https://github.com/dompdf/dompdf/issues/636
+      'download url' => 'https://github.com/downloads/dompdf/dompdf/dompdf_0-6-0_beta3.tar.gz',
+      'version arguments' => array(
+        'file' => 'changelog.txt',
+        'pattern' => '/DOMPDF (.+) Release Notes/',
+        'lines' => 5,
+      ),
+      'files' => array(
+        'php' => array('dompdf_config.inc.php'),
+      ),
+    )
+  );
+ 
+  return $libraries;
+}
+
+function devdocs_export_form_devdocs_files_form_alter(&$form, &$form_state, $form_id) {
+
+  foreach (element_children($form['files']) as $key) {
+
+    $element = &$form['files'][$key];
+
+    $element['export_'.$element['#title']] = array(
+      '#type' => 'fieldset',
+      '#title' => t('Export'), 
+      '#collapsible' => TRUE, 
+      '#collapsed' => FALSE,
+    );
+
+    $element['export_'.$element['#title']]['export_pdf'] = array(
+      '#type' => 'link',
+      '#title' => t('PDF'),
+      '#href' => 'system/docs/export/pdf/'.$element['#title'],
+    );
+  }
+}
+
+/**
+ * File download for dynamic files
+ */
+function _devdocs_export_pdf_download() {
+
+  // Merge remainder of arguments from GET['q'], into relative file path.
+  $args = func_get_args();
+  global $user;
+  $params = drupal_get_query_parameters($query = NULL, $exclude = array('q'));
+  $op = isset($params['op']) ? $params['op'] : NULL;
+
+  $scheme = array_shift($args);
+  $target = implode('/', $args);
+  $target .= '.md';
+  $uri = $scheme . '://' . $target;
+  $headers = array();
+  
+  if (file_stream_wrapper_valid_scheme($scheme) && file_exists($uri)) {
+    
+    if ($library = libraries_load('php-markdown')) {
+      $markdown = file_get_contents($uri);
+      
+      $markdownParser = new \Michelf\Markdown();
+      $html = $markdownParser->transform($markdown);
+      
+      // TODO: css
+      // drupal_send_headers();
+      // header('Content-Type: text/html; charset=utf-8');
+      $html = '<html><head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/></head>
+        <body>'.$html.'</body></html>';
+
+      $html = mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8');
+
+      // http://engineeredweb.com/blog/2014/convert-markdown-pdf-using-php/
+
+      if ($library = libraries_load('dompdf')) {
+
+        $dompdf = new DOMPDF();
+        $dompdf->load_html($html, 'UTF-8');
+        $dompdf->render();
+        $dompdf->stream($target . '.pdf');
+        // $output = $dompdf->output();
+      }
+
+      else {
+        drupal_set_message('DOMPDF library missing', 'error');
+        drupal_not_found();
+        drupal_exit();
+      }  
+    }
+
+    else {
+      drupal_set_message('php-markdown library missing', 'error');
+      drupal_not_found();
+      drupal_exit();
+    }  
+  }
+  else {
+    drupal_not_found();
+  }
+  
+  drupal_exit();
+}
