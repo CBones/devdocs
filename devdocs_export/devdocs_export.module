@@ -15,6 +15,14 @@ function devdocs_export_menu() {
     'type' => MENU_CALLBACK,
   );
 
+  $items['admin/reports/devdocs/export'] = array(
+    'title' => 'Export',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('devdocs_export_form'),
+    'access arguments' => array('access developer documentation'),
+    'type' => MENU_LOCAL_TASK,
+  );
+
   return $items;
 }
 
@@ -62,18 +70,21 @@ function devdocs_export_form_devdocs_files_form_alter(&$form, &$form_state, $for
   foreach (element_children($form['files']) as $key) {
 
     $element = &$form['files'][$key];
+    $title = $element['#title'];
+    $uri = '/' . parse_url($element['edit_'.$title]['uri_'.$title]['#value'], PHP_URL_HOST)
+      . parse_url($element['edit_'.$title]['uri_'.$title]['#value'], PHP_URL_PATH);
 
-    $element['export_'.$element['#title']] = array(
+    $element['export_'.$title] = array(
       '#type' => 'fieldset',
       '#title' => t('Export'), 
       '#collapsible' => TRUE, 
       '#collapsed' => FALSE,
     );
 
-    $element['export_'.$element['#title']]['export_pdf'] = array(
+    $element['export_'.$title]['export_pdf'] = array(
       '#type' => 'link',
       '#title' => t('PDF'),
-      '#href' => 'system/docs/export/pdf/'.$element['#title'],
+      '#href' => 'system/docs/export/pdf'.$uri,
     );
   }
 }
@@ -91,36 +102,58 @@ function _devdocs_export_pdf_download() {
 
   $scheme = array_shift($args);
   $target = implode('/', $args);
-  $target .= '.md';
   $uri = $scheme . '://' . $target;
   $headers = array();
-  
+
   if (file_stream_wrapper_valid_scheme($scheme) && file_exists($uri)) {
     
     if ($library = libraries_load('php-markdown')) {
       $markdown = file_get_contents($uri);
       
-      $markdownParser = new \Michelf\Markdown();
+      $markdownParser = new \Michelf\MarkdownExtra();
       $html = $markdownParser->transform($markdown);
       
-      // TODO: css
-      // drupal_send_headers();
-      // header('Content-Type: text/html; charset=utf-8');
-      $html = '<html><head>
-        <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/></head>
-        <body>'.$html.'</body></html>';
+      $header_html = $footer_html = $css = '';
+      $dd_base_path = variable_get('devdocs_path', FALSE).'/export/';
 
-      $html = mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8');
+      // header
+      if (file_exists($dd_base_path . 'assets/header.md')) {
+        $header_markdown = file_get_contents($dd_base_path . 'assets/header.md');
+        $header_html = $markdownParser->transform($header_markdown);
+      }
+
+      // Footer
+      if (file_exists($dd_base_path . 'assets/footer.md')) {
+        $footer_markdown = file_get_contents($dd_base_path . 'assets/footer.md');
+        $footer_html = $markdownParser->transform($footer_markdown);
+      } 
+
+      // CSS
+      if (file_exists($dd_base_path . 'assets/inline_style.css')) {
+        $css = '<link type="text/css" href="assets/inline_style.css" rel="stylesheet" />';
+      }
+
+      $html = '<html><head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+        '
+        .$css.
+        '
+        </head>
+        <body>'
+        .$header_html
+        .$footer_html
+        .$html
+        .'</body></html>';
 
       // http://engineeredweb.com/blog/2014/convert-markdown-pdf-using-php/
-
       if ($library = libraries_load('dompdf')) {
 
         $dompdf = new DOMPDF();
+        $dompdf->set_base_path($dd_base_path);
         $dompdf->load_html($html, 'UTF-8');
+        $dompdf->set_paper("A4");
         $dompdf->render();
         $dompdf->stream($target . '.pdf');
-        // $output = $dompdf->output();
       }
 
       else {
@@ -141,4 +174,198 @@ function _devdocs_export_pdf_download() {
   }
   
   drupal_exit();
+}
+
+/**
+ * Export existing files 
+ */
+function devdocs_export_form($form, &$form_state) {
+
+  if (!variable_get('devdocs_path', FALSE)) drupal_goto('admin/reports/devdocs/settings');
+
+  $directory = 'docs://';
+  file_prepare_directory($directory, FILE_CREATE_DIRECTORY);
+
+  $files = file_scan_directory($directory, '/\.md/');
+
+  $form['header'] = array(
+    '#type' => 'checkbox',
+    '#title' => 'Header',
+  );
+
+  $form['table_drag_attributes'] = array(
+    '#prefix' => '<div id="attributes">',
+    '#suffix' => '</div>',
+    '#tree' => TRUE,
+    '#theme' => 'devdocs_export_table_drag_components',
+  );
+
+  $i = 0;
+
+  foreach ($files as $uri => $object) {
+    
+    $form['table_drag_attributes'][$object->name]['weight'] = array(
+      '#type' => 'textfield',
+      '#default_value' => $i,
+      '#size' => 3,
+      '#attributes' => array('class' => array('item-row-weight')),
+    );
+
+    $form['table_drag_attributes'][$object->name]['uri'] = array(
+      '#type' => 'hidden',
+      '#value' => $object->uri,
+    );
+
+    $form['table_drag_attributes'][$object->name]['export'] = array(
+      '#type' => 'checkbox',
+      '#title' => str_replace($directory, '', $object->uri),
+    );
+    
+    $i++;
+  }
+
+  $form['footer'] = array(
+    '#type' => 'checkbox',
+    '#title' => 'Footer',
+  );
+
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => 'Eksportēt'
+  );
+
+  return $form;
+}
+
+function devdocs_export_form_submit($form, &$form_state) {
+
+  // Get array of exportable objects
+
+  $exportables = array();
+
+  // if ($form_state['values']['header'] == 1) {
+  //   $exportables[-1] = 'docs://export/assets/header.md';
+  // } 
+
+  foreach ($form_state['values']['table_drag_attributes'] as $entry) {
+    if ($entry['export'] == 1) {
+      $exportables[$entry['weight']] = $entry['uri'];
+    }
+  }
+
+  // if ($form_state['values']['footer'] == 1) {
+  //   $exportables[10000] = 'docs://export/assets/footer.md';
+  // }
+
+  ksort($exportables);
+
+  // Pack PDF
+  devdocs_export_render_pdf($exportables, $form_state['values']['header'], $form_state['values']['footer']);
+
+}
+
+
+// Custom theme output.
+function theme_devdocs_export_table_drag_components($vars) {
+  $element = $vars['element'];
+  drupal_add_tabledrag('sample_table', 'order', 'sibling', 'item-row-weight');
+ 
+  $header = array(
+    // 'label' => t('Attribute'), 
+    'export' => t('Export'),
+    'weight' => t('Weight'),
+  );
+ 
+  $rows = array();
+  foreach (element_children($element) as $key) {
+    $row = array();
+    $row['data'] = array();
+    foreach ($header as $fieldname => $title) {
+      $row['data'][] = drupal_render($element[$key][$fieldname]);
+      $row['class'] = array('draggable');
+    }
+    $rows[] = $row;
+  }
+ 
+  return theme('table', array(
+    'header' => $header, 
+    'rows' => $rows,
+    'attributes' => array('id' => 'sample_table'),
+  ));
+}
+
+
+/**
+ * Implements hook_theme().
+ */
+function devdocs_export_theme($existing, $type, $theme, $path) {
+  $themes = array(
+    'devdocs_export_table_drag_components' => array(
+      'render element' => 'element'
+    ),
+  );
+  return $themes;
+}
+
+function devdocs_export_render_pdf($documents = array(), $add_header = FALSE, $add_footer = FALSE) {
+
+  $ml = libraries_load('php-markdown');
+  $dl = libraries_load('dompdf');
+
+  if (!$ml['loaded'] || !$dl['loaded']) {
+
+    drupal_set_message('dompdf or php-markdown library missing', 'error');
+      
+    return FALSE;
+  }
+
+  $markdownParser = new \Michelf\MarkdownExtra();
+  $dd_base_path = variable_get('devdocs_path', FALSE).'/export/';
+
+  $header_html = $footer_html = $css = '';
+  $pages = array();
+
+  // CSS
+  if (file_exists($dd_base_path . 'assets/inline_style.css')) {
+    $css = '<link type="text/css" href="assets/inline_style.css" rel="stylesheet" />';
+  }
+
+  // header
+  if ($add_header && file_exists($dd_base_path . 'assets/header.md')) {
+    $header_markdown = file_get_contents($dd_base_path . 'assets/header.md');
+    $header_html = $markdownParser->transform($header_markdown);
+  }
+
+  // Footer
+  if ($add_header && file_exists($dd_base_path . 'assets/footer.md')) {
+    $footer_markdown = file_get_contents($dd_base_path . 'assets/footer.md');
+    $footer_html = $markdownParser->transform($footer_markdown);
+  } 
+
+  // Generate pages
+  foreach ($documents as $document) {
+
+    $markdown = file_get_contents($document);
+    $pages[] = $markdownParser->transform($markdown);
+  }
+  
+  $html = '<html><head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+    '
+    .$css.
+    '
+    </head>
+    <body>'
+    .$header_html
+    .$footer_html
+    . implode('<div style="page-break-before: always;"></div>', $pages)
+    .'</body></html>';
+
+  $dompdf = new DOMPDF();
+  $dompdf->set_base_path($dd_base_path);
+  $dompdf->load_html($html, 'UTF-8');
+  $dompdf->set_paper("A4");
+  $dompdf->render();
+  $dompdf->stream('Documentation_export_'.date('Ymd').'.pdf');
+
 }
