@@ -59,7 +59,25 @@ function devdocs_export_libraries_info() {
       'files' => array(
         'php' => array('dompdf_config.inc.php'),
       ),
-    )
+    ),
+
+    // 'phpword' => array(
+    //   'name' => 'PHPWord',
+    //   'vendor url' => 'https://github.com/PHPOffice/PHPWord',
+    //   'download url' => 'https://github.com/PHPOffice/PHPWord/releases',
+    //   'version arguments' => array(
+    //     'file' => 'VERSION',
+    //     'pattern' => "/(\d+\.\d+\.\d+)/",
+    //     'lines' => 1,
+    //   ),
+    //   'path' => 'src/PhpWord',
+    //   'files' => array(
+    //     'php' => array(
+    //       'Autoloader.php',
+    //       // 'PhpWord.php',
+    //     ),
+    //   ),
+    // ),
   );
  
   return $libraries;
@@ -106,68 +124,7 @@ function _devdocs_export_pdf_download() {
   $headers = array();
 
   if (file_stream_wrapper_valid_scheme($scheme) && file_exists($uri)) {
-    
-    if ($library = libraries_load('php-markdown')) {
-      $markdown = file_get_contents($uri);
-      
-      $markdownParser = new \Michelf\MarkdownExtra();
-      $html = $markdownParser->transform($markdown);
-      
-      $header_html = $footer_html = $css = '';
-      $dd_base_path = variable_get('devdocs_path', FALSE).'/export/';
-
-      // header
-      if (file_exists($dd_base_path . 'assets/header.md')) {
-        $header_markdown = file_get_contents($dd_base_path . 'assets/header.md');
-        $header_html = $markdownParser->transform($header_markdown);
-      }
-
-      // Footer
-      if (file_exists($dd_base_path . 'assets/footer.md')) {
-        $footer_markdown = file_get_contents($dd_base_path . 'assets/footer.md');
-        $footer_html = $markdownParser->transform($footer_markdown);
-      } 
-
-      // CSS
-      if (file_exists($dd_base_path . 'assets/inline_style.css')) {
-        $css = '<link type="text/css" href="assets/inline_style.css" rel="stylesheet" />';
-      }
-
-      $html = '<html><head>
-        <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-        '
-        .$css.
-        '
-        </head>
-        <body>'
-        .$header_html
-        .$footer_html
-        .$html
-        .'</body></html>';
-
-      // http://engineeredweb.com/blog/2014/convert-markdown-pdf-using-php/
-      if ($library = libraries_load('dompdf')) {
-
-        $dompdf = new DOMPDF();
-        $dompdf->set_base_path($dd_base_path);
-        $dompdf->load_html($html, 'UTF-8');
-        $dompdf->set_paper("A4");
-        $dompdf->render();
-        $dompdf->stream($target . '.pdf');
-      }
-
-      else {
-        drupal_set_message('DOMPDF library missing', 'error');
-        drupal_not_found();
-        drupal_exit();
-      }  
-    }
-
-    else {
-      drupal_set_message('php-markdown library missing', 'error');
-      drupal_not_found();
-      drupal_exit();
-    }  
+    devdocs_export_render_pdf(array($uri), array('filename' => basename($uri). '_'.date('Ymd')));
   }
   else {
     drupal_not_found();
@@ -190,7 +147,8 @@ function devdocs_export_form($form, &$form_state) {
 
   $form['header'] = array(
     '#type' => 'checkbox',
-    '#title' => 'Header',
+    '#title' => t('Header'),
+    '#description' => t('Add %docpath as document header', array('%docpath' => $directory.'export/assets/header.md')),
   );
 
   $form['table_drag_attributes'] = array(
@@ -226,12 +184,13 @@ function devdocs_export_form($form, &$form_state) {
 
   $form['footer'] = array(
     '#type' => 'checkbox',
-    '#title' => 'Footer',
+    '#title' => t('Footer'),
+    '#description' => t('Add %docpath as document footer', array('%docpath' => $directory.'export/assets/footer.md')),
   );
 
   $form['submit'] = array(
     '#type' => 'submit',
-    '#value' => 'Eksportēt'
+    '#value' => t('Export'),
   );
 
   return $form;
@@ -243,24 +202,19 @@ function devdocs_export_form_submit($form, &$form_state) {
 
   $exportables = array();
 
-  // if ($form_state['values']['header'] == 1) {
-  //   $exportables[-1] = 'docs://export/assets/header.md';
-  // } 
-
   foreach ($form_state['values']['table_drag_attributes'] as $entry) {
     if ($entry['export'] == 1) {
       $exportables[$entry['weight']] = $entry['uri'];
     }
   }
 
-  // if ($form_state['values']['footer'] == 1) {
-  //   $exportables[10000] = 'docs://export/assets/footer.md';
-  // }
-
   ksort($exportables);
 
   // Pack PDF
-  devdocs_export_render_pdf($exportables, $form_state['values']['header'], $form_state['values']['footer']);
+  devdocs_export_render_pdf($exportables, array(
+    'header' => $form_state['values']['header'], 
+    'footer' => $form_state['values']['footer'],
+  ));
 
 }
 
@@ -271,7 +225,6 @@ function theme_devdocs_export_table_drag_components($vars) {
   drupal_add_tabledrag('sample_table', 'order', 'sibling', 'item-row-weight');
  
   $header = array(
-    // 'label' => t('Attribute'), 
     'export' => t('Export'),
     'weight' => t('Weight'),
   );
@@ -307,12 +260,43 @@ function devdocs_export_theme($existing, $type, $theme, $path) {
   return $themes;
 }
 
-function devdocs_export_render_pdf($documents = array(), $add_header = FALSE, $add_footer = FALSE) {
+function devdocs_export_render_pdf($documents = array(), $options_user = array()) {
 
+  $options = array(
+    'format' => 'pdf',
+    'header' => FALSE, 
+    'footer' => FALSE, 
+    'filename' => 'Documentation_export_'.date('Ymd'),
+  );
+
+  // $formats = array(
+  //   'docx' => array(
+  //     'extension' => 'docx',
+  //     'writer' => 'Word2007',
+  //     'content_type' => 'Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  //   ),
+  //   'odt' => array(
+  //     'extension' => 'odt',
+  //     'writer' => 'ODText',
+  //     'content_type' => 'Content-Type: application/vnd.oasis.opendocument.text',
+  //   ),
+  //   'pdf' => array(
+  //     'extension' => 'pdf',
+  //     'writer' => 'PDF',
+  //     'content_type' => 'Content-type: application/pdf',
+  //   ),
+  // );
+
+  // $format = $formats[$options['format']];
+
+  $options = array_merge($options, $options_user);
+  
   $ml = libraries_load('php-markdown');
   $dl = libraries_load('dompdf');
+  // $wl = libraries_load('phpword');
 
   if (!$ml['loaded'] || !$dl['loaded']) {
+  // if (!$ml['loaded'] || !$dl['loaded'] || !$wl['loaded']) {
 
     drupal_set_message('dompdf or php-markdown library missing', 'error');
       
@@ -331,13 +315,13 @@ function devdocs_export_render_pdf($documents = array(), $add_header = FALSE, $a
   }
 
   // header
-  if ($add_header && file_exists($dd_base_path . 'assets/header.md')) {
+  if ($options['header'] && file_exists($dd_base_path . 'assets/header.md')) {
     $header_markdown = file_get_contents($dd_base_path . 'assets/header.md');
     $header_html = $markdownParser->transform($header_markdown);
   }
-
+  
   // Footer
-  if ($add_header && file_exists($dd_base_path . 'assets/footer.md')) {
+  if ($options['footer'] && file_exists($dd_base_path . 'assets/footer.md')) {
     $footer_markdown = file_get_contents($dd_base_path . 'assets/footer.md');
     $footer_html = $markdownParser->transform($footer_markdown);
   } 
@@ -361,11 +345,35 @@ function devdocs_export_render_pdf($documents = array(), $add_header = FALSE, $a
     . implode('<div style="page-break-before: always;"></div>', $pages)
     .'</body></html>';
 
+  // render document
+  // \PhpOffice\PhpWord\Autoloader::register();
+  // $phpWord = new \PhpOffice\PhpWord\PhpWord();
+  // $section = $phpWord->createSection();
+  // \PhpOffice\PhpWord\Shared\Html::addHtml($section, $html, TRUE);
+  // $file = 'Documentation_export_'.date('Ymd').'.'. $format['extension'] ;
+  // header("Content-Description: File Transfer");
+  // header('Content-Disposition: attachment; filename="' . $file . '"');
+  // header($format['content_type']);
+  // header('Content-Transfer-Encoding: binary');
+  // header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
+  // header('Expires: 0');
+  
+  // if ($options['format'] == 'pdf') {
+  //   \PhpOffice\PhpWord\Settings::setPdfRendererPath($dl['library path']);
+  //   \PhpOffice\PhpWord\Settings::setPdfRendererName('DomPDF');
+  // }
+
+  // $xmlWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, $format['writer']);
+
+  // $xmlWriter->save("php://output");
+
+  // drupal_exit();
+
   $dompdf = new DOMPDF();
   $dompdf->set_base_path($dd_base_path);
   $dompdf->load_html($html, 'UTF-8');
   $dompdf->set_paper("A4");
   $dompdf->render();
-  $dompdf->stream('Documentation_export_'.date('Ymd').'.pdf');
+  $dompdf->stream($options['filename'].'.pdf');
 
 }
