@@ -87,6 +87,7 @@ function devdocs_stream_wrappers() {
  * File download for dynamic files
  */
 function _devdocs_file_download() {
+  
   // Merge remainder of arguments from GET['q'], into relative file path.
   $args = func_get_args();
   global $user;
@@ -97,6 +98,8 @@ function _devdocs_file_download() {
   $target = implode('/', $args);
   $uri = $scheme . '://' . $target;
   $headers = array();
+
+  $GLOBALS['devel_shutdown'] = FALSE;
 
   if (file_stream_wrapper_valid_scheme($scheme) && file_exists($uri)) {
     file_transfer($uri, $headers);
