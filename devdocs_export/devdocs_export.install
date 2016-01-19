@@ -1,0 +1,43 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the DevDocs Export module.
+ */
+
+/**
+ * Implements hook_requirements().
+ */
+function devdocs_export_requirements($phase) {
+  $requirements = array();
+
+  $libraries = array('php-markdown' => 'PHP Markdown Extra plugin', 'dompdf' => 'dompdf');
+
+  if ($phase == 'runtime') {
+    $t = get_t();
+    foreach ($libraries as $key => $label) {
+
+      $library = libraries_detect($key);
+      $error_type = isset($library['error']) ? drupal_ucfirst($library['error']) : '';
+      $error_message = isset($library['error message']) ? $library['error message'] : '';
+
+      if (empty($library['installed'])) {
+        $requirements[$key] = array(
+          'title' => $t($label),
+          'value' => $t('@e', array('@e' => $error_type)),
+          'severity' => REQUIREMENT_ERROR,
+          'description' => $t('!error You need to download the !label, extract the archive and place the !dir directory in the %path directory on your server.', array('!error' => $error_message, '!label' => l($t($label), $library['download url']), '!dir' => $key, '%path' => 'sites/all/libraries')),
+        );
+      }
+      else {
+        $requirements[$key] = array(
+          'title' => $t($label),
+          'severity' => REQUIREMENT_OK,
+          'value' => $library['version'],
+        );
+      }
+    }
+  }
+
+  return $requirements;
+}
