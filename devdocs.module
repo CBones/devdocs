@@ -87,7 +87,7 @@ function devdocs_stream_wrappers() {
  * File download for dynamic files
  */
 function _devdocs_file_download() {
-  
+
   // Merge remainder of arguments from GET['q'], into relative file path.
   $args = func_get_args();
   global $user;
@@ -207,7 +207,7 @@ function devdocs_files_form($form, &$form_state) {
   $form['files'] = array(
     '#type' => 'vertical_tabs',
   );
-  $files = file_scan_directory($directory, '/\.md/');
+  $files = file_scan_directory($directory, '/.*\.md$/');
 
   foreach ($files as $uri => $object) {
     $form['files']['file_'.$object->name] = array(

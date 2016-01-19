@@ -143,7 +143,7 @@ function devdocs_export_form($form, &$form_state) {
   $directory = 'docs://';
   file_prepare_directory($directory, FILE_CREATE_DIRECTORY);
 
-  $files = file_scan_directory($directory, '/\.md/');
+  $files = file_scan_directory($directory, '/.*\.md$/');
 
   $form['header'] = array(
     '#type' => 'checkbox',
