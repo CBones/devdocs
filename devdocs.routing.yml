@@ -1,21 +1,3 @@
-# In order to view files created with our demo stream wrapper class,
-# we need to use hook_file_download to grant any access. This route
-# will make sure that we have an external URL for these files, and that
-# our hook is called.
-#
-# In our implementation, access to the files is actually managed by
-# permissions defined in file_example.permissions.yml. Since we also want our
-# URLs to be served similar to how private: and temporary: URI are served by
-# core, we also need to modify how the routing system handles the tail portion
-# of the URL. Unlike Drupal 7, Drupal 8 does not ordinarily allow a "menu tail";
-# URLs need to be of a definite length or the router will not process them. To
-# get around this, we also implement a "path processor", which we define as a
-# service in our services file. Our path processor will do the extra steps needed
-# to process our session file URLs.
-#
-# @see stream_wrapper_example.services.yml
-# @see file_example_file_download()
-#
 devdocs.files:
   path: '/system/docs/{scheme}'
   defaults:
