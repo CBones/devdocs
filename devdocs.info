@@ -1,8 +1,0 @@
-name = Developer Documentation
-description = "Automatic Developer Documentation"
-core = 7.x
-core = 7.x
-configure = admin/reports/devdocs
-dependencies[] = markdown
-files[] = DevdocsStreamWrapper.inc
-

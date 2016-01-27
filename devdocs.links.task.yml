@@ -1,0 +1,15 @@
+devdocs.admin_settings_form_tab:
+  route_name: devdocs.settings.form
+  base_route: devdocs.settings.form
+  title: 'DevDocs Settings'
+  weight: 20
+devdocs.settings.files:
+  route_name: devdocs.settings.files
+  base_route: devdocs.settings.form
+  title: 'Documentation files'
+  weight: 40
+devdocs.settings.output:
+  route_name: devdocs.settings.output
+  base_route: devdocs.settings.form
+  title: 'Output'
+  weight: 60

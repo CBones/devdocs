@@ -1,0 +1,11 @@
+name: 'Developer Documentation'
+description: 'Automatic Developer Documentation'
+package: 'Documentation'
+
+type: module
+core: '8.x'
+
+dependencies:
+  - markdown
+
+configure: devdocs.settings

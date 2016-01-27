@@ -1,0 +1,7 @@
+devdocs.settings.form:
+  title: 'Developer documentation'
+  parent: system.admin_reports
+  description: 'TODO'
+  route_name: devdocs.settings.form
+  weight: 0
+

@@ -1,0 +1,53 @@
+# In order to view files created with our demo stream wrapper class,
+# we need to use hook_file_download to grant any access. This route
+# will make sure that we have an external URL for these files, and that
+# our hook is called.
+#
+# In our implementation, access to the files is actually managed by
+# permissions defined in file_example.permissions.yml. Since we also want our
+# URLs to be served similar to how private: and temporary: URI are served by
+# core, we also need to modify how the routing system handles the tail portion
+# of the URL. Unlike Drupal 7, Drupal 8 does not ordinarily allow a "menu tail";
+# URLs need to be of a definite length or the router will not process them. To
+# get around this, we also implement a "path processor", which we define as a
+# service in our services file. Our path processor will do the extra steps needed
+# to process our session file URLs.
+#
+# @see stream_wrapper_example.services.yml
+# @see file_example_file_download()
+#
+devdocs.files:
+  path: '/system/docs/{scheme}'
+  defaults:
+    _controller: 'Drupal\devdocs\Controller\DocsDownloadController::download'
+    scheme: docs
+  requirements:
+    _permission: 'access developer documentation'
+devdocs.docs_file_download:
+  path: '/system/docs/{filepath}'
+  defaults:
+    _controller: 'Drupal\devdocs\Controller\DocsDownloadController::download'
+  requirements:
+    _permission: 'access developer documentation'
+
+devdocs.settings.form:
+  path: '/admin/reports/devdocs/settings'
+  defaults:
+    _form: '\Drupal\devdocs\Form\DevDocsSettingsForm'
+    _title: 'Settings'
+  requirements:
+    _permission: 'configure developer documentation'
+devdocs.settings.files:
+  path: '/admin/reports/devdocs/files'
+  defaults:
+    _form: '\Drupal\devdocs\Form\DevDocsFilesForm'
+    _title: 'Documentation files'
+  requirements:
+    _permission: 'configure developer documentation'
+devdocs.settings.output:
+  path: '/admin/reports/devdocs/output'
+  defaults:
+    _controller: '\Drupal\devdocs\Controller\DocsOutput::docs'
+    _title: 'Developer documentation'
+  requirements:
+    _permission: 'access developer documentation'
