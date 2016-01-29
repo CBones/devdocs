@@ -1,0 +1,26 @@
+php-markdown:
+  remote: https://github.com/michelf/php-markdown
+  version: VERSION
+  license:
+    name: Custom
+    gpl-compatible: false
+  php:
+    /libraries/php-markdown/Michelf/Markdown.inc.php: { }
+
+php-markdown-extra:
+  remote: https://github.com/michelf/php-markdown
+  version: VERSION
+  license:
+    name: Custom
+    gpl-compatible: false
+  php:
+    /libraries/php-markdown/Michelf/MarkdownExtra.inc.php: { }
+
+dompdf:
+  remote: http://github.com/dompdf/dompdf
+  version: VERSION
+  license:
+    name: Custom
+    gpl-compatible: false
+  php:
+    /libraries/dompdf/dompdf_config.inc.php: { }

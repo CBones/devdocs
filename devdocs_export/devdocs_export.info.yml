@@ -1,0 +1,10 @@
+name: Developer Documentation Export
+description: Developer Documentation Export to PDF/HTML
+package: Documentation
+
+type: module
+core: 8.x
+
+dependencies:
+  - devdocs
+  - libraries

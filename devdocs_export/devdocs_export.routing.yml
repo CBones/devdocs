@@ -1,0 +1,14 @@
+devdocs_export.form:
+  path: '/admin/reports/devdocs/export'
+  defaults:
+    _form: '\Drupal\devdocs_export\Form\DevDocsExportForm'
+    _title: 'Developer documentation export'
+  requirements:
+    _permission: 'access developer documentation'
+devdocs_export.export:
+  path: '/docs/export/pdf'
+  defaults:
+    _controller: '\Drupal\devdocs_export\Controller\DocsExport::pdf'
+    _title: 'PDF export'
+  requirements:
+    _permission: 'access developer documentation'

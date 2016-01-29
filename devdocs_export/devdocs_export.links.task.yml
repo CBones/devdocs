@@ -1,0 +1,5 @@
+devdocs_export.form:
+  route_name: devdocs_export.form
+  base_route: devdocs.settings.form
+  title: 'Export'
+  weight: 80
