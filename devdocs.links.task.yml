@@ -1,7 +1,7 @@
-devdocs.admin_settings_form_tab:
+devdocs.settings.form:
   route_name: devdocs.settings.form
   base_route: devdocs.settings.form
-  title: 'DevDocs Settings'
+  title: 'Settings'
   weight: 20
 devdocs.settings.files:
   route_name: devdocs.settings.files

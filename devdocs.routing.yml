@@ -16,7 +16,7 @@ devdocs.settings.form:
   path: '/admin/reports/devdocs/settings'
   defaults:
     _form: '\Drupal\devdocs\Form\DevDocsSettingsForm'
-    _title: 'Settings'
+    _title: 'DevDocs Settings'
   requirements:
     _permission: 'configure developer documentation'
 devdocs.settings.files:

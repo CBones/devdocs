@@ -1,0 +1,24 @@
+{
+  "name": "drupal/devdocs",
+  "description": "Helper module for Drupal developers. Provides some automation and export functionality.",
+  "type": "drupal-module",
+  "homepage": "https://github.com/CBones/devdocs",
+  "authors": [
+    {
+      "name": "Gatis Rudins (rudins)",
+      "email": "gatis.rudins@wunderkraut.com",
+      "role": "Maintainer"
+    },
+    {
+      "name": "Janis Bebritis (jānis-bebrītis)",
+      "email": "janis.bebritis@wunderkraut.com",
+      "role": "Co-maintainer"
+    }
+  ],
+  "support": {
+    "issues": "https://github.com/CBones/devdocs/issues",
+    "source": "https://github.com/CBones/devdocs.git"
+  },
+  "license": "GPL-2.0+",
+  "minimum-stability": "dev"
+}

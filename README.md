@@ -1,7 +1,7 @@
 Drupal Developer documentation
 ------------------------------
 
-Module to automate the documentation process based on markdown.
+Helper module for Drupal developers. Provides some automation and export functionality.
 Template files included.
 
 * Use files in template directory as starting point for you documentation.

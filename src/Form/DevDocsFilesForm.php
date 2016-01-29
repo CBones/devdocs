@@ -62,23 +62,33 @@ class DevDocsFilesForm extends FormBase {
         $output = check_plain($markdown);
       }
 
-      $form['files']['file_'.$object->name]['locked_'.$object->name] = array(
-        '#type' => 'checkbox',
-        '#title' => t('Locked'),
-        '#default_value' => (strpos($markdown, 'devdocs:locked')) ? TRUE : FALSE,
-      );
-
       $form['files']['file_'.$object->name]['htabs'] = array(
         '#type' => 'horizontal_tabs',
         '#parents' => ['files'],
       );
+
+      $form['files']['file_'.$object->name]['htabs']['htabs_output'] = array(
+        '#type' => 'details',
+        '#title' => t('View'),
+        '#group' => 'htabs',
+        '#open' => FALSE
+      );
+      $form['files']['file_'.$object->name]['htabs']['htabs_output']['output'] = array(
+        '#markup' => $output,
+        '#group' => 'htabs',
+      );
+
       $form['files']['file_'.$object->name]['htabs']['edit_'.$object->name] = array(
         '#type' => 'details',
         '#title' => t('Edit'),
         '#group' => 'htabs',
       );
 
-      if (strpos($markdown, 'devdocs:locked')) $form['files']['file_'.$object->name]['edit_'.$object->name]['#disabled'] = TRUE;
+      $form['files']['file_'.$object->name]['htabs']['edit_'.$object->name]['locked_'.$object->name] = array(
+        '#type' => 'checkbox',
+        '#title' => t('Locked'),
+        '#default_value' => (strpos($markdown, 'devdocs:locked')) ? TRUE : FALSE,
+      );
 
       $form['files']['file_'.$object->name]['htabs']['edit_'.$object->name]['id_'.$object->name] = array(
         '#type' => 'textarea',
@@ -86,6 +96,9 @@ class DevDocsFilesForm extends FormBase {
         '#rows' => 10,
         '#group' => 'htabs',
       );
+      if (strpos($markdown, 'devdocs:locked')) {
+        $form['files']['file_'.$object->name]['htabs']['edit_'.$object->name]['#disabled'] = TRUE;
+      }
 
       $form['files']['file_'.$object->name]['htabs']['edit_'.$object->name]['uri_'.$object->name] = array(
         '#type' => 'hidden',
@@ -102,31 +115,23 @@ class DevDocsFilesForm extends FormBase {
         ),
         '#group' => 'htabs',
       );
-      $form['files']['file_'.$object->name]['edit_'.$object->name]['delete_'.$object->name] = array(
+      $form['files']['file_'.$object->name]['htabs']['edit_'.$object->name]['delete_'.$object->name] = array(
         '#type' => 'checkbox',
         '#title' => t('Delete'),
       );
 
-      $form['files']['file_'.$object->name]['htabs']['htabs_output'] = array(
-        '#type' => 'details',
-        '#title' => t('View'),
-        '#group' => 'htabs',
-      );
-      $form['files']['file_'.$object->name]['htabs']['htabs_output']['output'] = array(
-        '#markup' => $output,
-        '#group' => 'htabs',
-      );
     }
 
     $form['new'] = array(
       '#type' => 'textfield',
-      '#title' => 'New file',
+      '#title' => t('New file'),
       '#description' => 'Filename without extension',
       '#default_value' => ''
     );
     $form['submit'] = array(
       '#type' => 'submit',
-      '#value' => 'Saglabāt'
+      '#value' => t('Save'),
+      '#attributes' => array('class' => array('button--primary')),
     );
 
     return $form;
