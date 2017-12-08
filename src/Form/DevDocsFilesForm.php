@@ -1,22 +1,57 @@
 <?php
-/**
- * @file
- * Contains \Drupal\devdocs\Form\DevDocsFilesForm
- */
+
 namespace Drupal\devdocs\Form;
 
+use Drupal\Component\Utility\Html;
+use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\Component\Utility\UrlHelper;
-use Drupal\markdown\Plugin\Filter\Markdown;
-use Drupal\Component\Utility\Xss;
 use Michelf\MarkdownExtra;
 use Drupal\filter\FilterProcessResult;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Configure devdocs settings for this site.
  */
 class DevDocsFilesForm extends FormBase {
+
+  /**
+   * Configuration factory.
+   *
+   * @var \Drupal\Core\Config\ConfigFactoryInterface
+   */
+  public $configFactory;
+
+  /**
+   * Devdocs logger channel.
+   *
+   * @var \Psr\Log\LoggerInterface
+   */
+  public $loggerChannel;
+
+  /**
+   * DevDocsFilesForm constructor.
+   *
+   * @param \Drupal\Core\Config\ConfigFactoryInterface $config_factory
+   *   Configuration factory.
+   * @param \Psr\Log\LoggerInterface $logger
+   *   Devdocs logger channel.
+   */
+  public function __construct(ConfigFactoryInterface $config_factory, LoggerInterface $logger) {
+    $this->configFactory = $config_factory;
+    $this->loggerChannel = $logger;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container) {
+    return new static(
+      $container->get('config.factory'),
+      $container->get('logger.factory')->get('devdocs')
+    );
+  }
 
   /**
    * {@inheritdoc}
@@ -29,110 +64,106 @@ class DevDocsFilesForm extends FormBase {
    * {@inheritdoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state, $config_name = '') {
-    if (!\Drupal::config('devdocs.settings')->get('path')) return $this->redirect('devdocs.settings.form');
+    if (!$this->configFactory->get('devdocs.settings')->get('path')) {
+      return $this->redirect('devdocs.settings.form');
+    }
 
     $directory = 'docs://';
 
-    $form['tabs'] = array(
+    $form['tabs'] = [
       '#type' => 'vertical_tabs',
       '#parents' => ['tabs'],
-    );
+    ];
     $files = file_scan_directory($directory, '/.*\.md$/');
 
     foreach ($files as $uri => $object) {
-      $form['files']['file_'.$object->name] = array(
+      $form['files']['file_' . $object->name] = [
         '#type' => 'details',
         '#title' => $object->name,
-        '#parents' => array('files', 'file_'.$object->name),
+        '#parents' => ['files', 'file_' . $object->name],
         '#group' => 'tabs',
-      );
+      ];
       $markdown = file_get_contents($uri);
 
-      if (\Drupal::moduleHandler()->moduleExists('markdown')) {
-        if (\Drupal::moduleHandler()->moduleExists('libraries')) {
-          libraries_load('php-markdown', 'markdown-extra');
-          $text = MarkdownExtra::defaultTransform($markdown);
-          $output = new FilterProcessResult($text);
-        }
-        else {
-          $output = '<pre>' . check_plain($markdown) . '</pre>';
-        }
+      try {
+        $output = new FilterProcessResult(MarkdownExtra::defaultTransform($markdown));
       }
-      else {
-        $output = check_plain($markdown);
+      catch (\Exception $exception) {
+        $this->loggerChannel->warning($exception->getMessage());
+        $output = Html::escape($markdown);
       }
 
-      $form['files']['file_'.$object->name]['htabs'] = array(
+      $form['files']['file_' . $object->name]['htabs'] = [
         '#type' => 'horizontal_tabs',
         '#parents' => ['files'],
-      );
+      ];
 
-      $form['files']['file_'.$object->name]['htabs']['htabs_output'] = array(
+      $form['files']['file_' . $object->name]['htabs']['htabs_output'] = [
         '#type' => 'details',
         '#title' => t('View'),
         '#group' => 'htabs',
-        '#open' => FALSE
-      );
-      $form['files']['file_'.$object->name]['htabs']['htabs_output']['output'] = array(
+        '#open' => FALSE,
+      ];
+      $form['files']['file_' . $object->name]['htabs']['htabs_output']['output'] = [
         '#markup' => $output,
         '#group' => 'htabs',
-      );
+      ];
 
-      $form['files']['file_'.$object->name]['htabs']['edit_'.$object->name] = array(
+      $form['files']['file_' . $object->name]['htabs']['edit_' . $object->name] = [
         '#type' => 'details',
         '#title' => t('Edit'),
         '#group' => 'htabs',
-      );
+      ];
 
-      $form['files']['file_'.$object->name]['htabs']['edit_'.$object->name]['locked_'.$object->name] = array(
+      $form['files']['file_' . $object->name]['htabs']['edit_' . $object->name]['locked_' . $object->name] = [
         '#type' => 'checkbox',
         '#title' => t('Locked'),
         '#default_value' => (strpos($markdown, 'devdocs:locked')) ? TRUE : FALSE,
-      );
+      ];
 
-      $form['files']['file_'.$object->name]['htabs']['edit_'.$object->name]['id_'.$object->name] = array(
+      $form['files']['file_' . $object->name]['htabs']['edit_' . $object->name]['id_' . $object->name] = [
         '#type' => 'textarea',
         '#default_value' => $markdown,
         '#rows' => 10,
         '#group' => 'htabs',
-      );
+      ];
       if (strpos($markdown, 'devdocs:locked')) {
-        $form['files']['file_'.$object->name]['htabs']['edit_'.$object->name]['#disabled'] = TRUE;
+        $form['files']['file_' . $object->name]['htabs']['edit_' . $object->name]['#disabled'] = TRUE;
       }
 
-      $form['files']['file_'.$object->name]['htabs']['edit_'.$object->name]['uri_'.$object->name] = array(
+      $form['files']['file_' . $object->name]['htabs']['edit_' . $object->name]['uri_' . $object->name] = [
         '#type' => 'hidden',
         '#value' => $uri,
-      );
-      $form['files']['file_'.$object->name]['htabs']['edit_'.$object->name]['generate_'.$object->name] = array(
+      ];
+      $form['files']['file_' . $object->name]['htabs']['edit_' . $object->name]['generate_' . $object->name] = [
         '#type' => 'select',
         '#title' => 'Generate content',
-        '#options' => array(
+        '#options' => [
           '_none' => '-- Select --',
           'views' => 'Output Views information',
-          // 'features' => 'Output Features information',
+          // 'features' => 'Output Features information',.
           'content_types' => 'Output Content Types information',
-        ),
+        ],
         '#group' => 'htabs',
-      );
-      $form['files']['file_'.$object->name]['htabs']['edit_'.$object->name]['delete_'.$object->name] = array(
+      ];
+      $form['files']['file_' . $object->name]['htabs']['edit_' . $object->name]['delete_' . $object->name] = [
         '#type' => 'checkbox',
         '#title' => t('Delete'),
-      );
+      ];
 
     }
 
-    $form['new'] = array(
+    $form['new'] = [
       '#type' => 'textfield',
       '#title' => t('New file'),
       '#description' => 'Filename without extension',
-      '#default_value' => ''
-    );
-    $form['submit'] = array(
+      '#default_value' => '',
+    ];
+    $form['submit'] = [
       '#type' => 'submit',
       '#value' => t('Save'),
-      '#attributes' => array('class' => array('button--primary')),
-    );
+      '#attributes' => ['class' => ['button--primary']],
+    ];
 
     return $form;
   }
@@ -140,9 +171,7 @@ class DevDocsFilesForm extends FormBase {
   /**
    * {@inheritdoc}
    */
-  public function validateForm(array &$form, FormStateInterface $form_state) {
-
-  }
+  public function validateForm(array &$form, FormStateInterface $form_state) {}
 
   /**
    * {@inheritdoc}
@@ -185,9 +214,11 @@ class DevDocsFilesForm extends FormBase {
             case 'views':
               $markdown = devdocs_views_info_output();
               break;
+
             case 'features':
               $markdown = devdocs_features_info_output();
               break;
+
             case 'content_types':
               $markdown = devdocs_content_types_info_output();
               break;
@@ -199,7 +230,7 @@ class DevDocsFilesForm extends FormBase {
       }
     }
     catch (\Exception $e) {
-      drupal_set_message($e->getMessage(), 'error');
+      $this->loggerChannel->error($e->getMessage());
     }
   }
 
