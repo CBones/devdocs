@@ -50,7 +50,7 @@ class DevDocsFilesForm extends FormBase {
 
       if (\Drupal::moduleHandler()->moduleExists('markdown')) {
         if (\Drupal::moduleHandler()->moduleExists('libraries')) {
-          libraries_load('php-markdown', 'markdown-extra');
+          \Drupal::service('libraries.manager')->load('php-markdown', 'markdown-extra');
           $text = MarkdownExtra::defaultTransform($markdown);
           $output = new FilterProcessResult($text);
         }

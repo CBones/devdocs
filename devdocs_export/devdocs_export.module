@@ -88,38 +88,40 @@ function devdocs_export_libraries_info() {
 }
 
 function devdocs_export_form_devdocs_files_form_alter(&$form, &$form_state, $form_id) {
-  foreach (Element::children($form['files']) as $key) {
+  if (isset($form['files']) && is_array($form['files'])) {
+    foreach (Element::children($form['files']) as $key) {
 
-    $element = &$form['files'][$key];
-    // kint($element);
-    $title = $element['#title'];
-    $uri = parse_url($element['htabs']['edit_'.$title]['uri_'.$title]['#value'], PHP_URL_HOST)
-      . parse_url($element['htabs']['edit_'.$title]['uri_'.$title]['#value'], PHP_URL_PATH);
+      $element = &$form['files'][$key];
+      // kint($element);
+      $title = $element['#title'];
+      $uri = parse_url($element['htabs']['edit_' . $title]['uri_' . $title]['#value'], PHP_URL_HOST)
+        . parse_url($element['htabs']['edit_' . $title]['uri_' . $title]['#value'], PHP_URL_PATH);
 
-    // $element['export_'.$title] = array(
-    //   '#type' => 'fieldset',
-    //   '#title' => t('Export'),
-    //   '#collapsible' => TRUE,
-    //   '#collapsed' => FALSE,
-    // );
+      // $element['export_'.$title] = array(
+      //   '#type' => 'fieldset',
+      //   '#title' => t('Export'),
+      //   '#collapsible' => TRUE,
+      //   '#collapsed' => FALSE,
+      // );
 
-    $url = file_create_url('docs/export/pdf');
-    $url = Url::fromUri($url);
-    $link_options = array(
-      'query' => array(
-        'file' => $uri,
-      ),
-      'attributes' => array(
-        'class' => 'button'
-      )
-    );
-    $url->setOptions($link_options);
-    $link = \Drupal::l(t('PDF'), $url);
-    $element['htabs']['htabs_output']['export_pdf'] = array(
-      '#markup' => $link,
-      '#group' => 'htabs',
-      '#weight' => '-10'
-    );
+      $url = file_create_url('docs/export/pdf');
+      $url = Url::fromUri($url);
+      $link_options = [
+        'query' => [
+          'file' => $uri,
+        ],
+        'attributes' => [
+          'class' => 'button'
+        ]
+      ];
+      $url->setOptions($link_options);
+      $link = \Drupal::l(t('PDF'), $url);
+      $element['htabs']['htabs_output']['export_pdf'] = [
+        '#markup' => $link,
+        '#group' => 'htabs',
+        '#weight' => '-10'
+      ];
+    }
   }
 }
 

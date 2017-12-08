@@ -15,6 +15,10 @@
       "role": "Co-maintainer"
     }
   ],
+  "require": {
+    "michelf/php-markdown": "^1.7.0",
+    "dompdf/dompdf": "^0.8.2"
+  },
   "support": {
     "issues": "https://github.com/CBones/devdocs/issues",
     "source": "https://github.com/CBones/devdocs.git"
