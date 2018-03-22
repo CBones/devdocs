@@ -11,7 +11,6 @@ use Drupal\Core\Extension\ModuleHandlerInterface;
  */
 class DevdocsExportHandlerManager extends DefaultPluginManager {
 
-
   /**
    * Constructs a new DevdocsExportHandlerManager object.
    *

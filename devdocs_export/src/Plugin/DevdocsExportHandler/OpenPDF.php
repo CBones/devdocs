@@ -2,6 +2,7 @@
 
 namespace Drupal\devdocs_export\Plugin\DevdocsExportHandler;
 
+use Symfony\Component\HttpFoundation\Response;
 use Dompdf\Dompdf;
 use Drupal\devdocs\StreamWrapper\DocsStream;
 use Drupal\devdocs_export\Plugin\DevdocsExportHandlerBase;
@@ -21,14 +22,21 @@ class OpenPDF extends DevdocsExportHandlerBase {
   /**
    * {@inheritdoc}
    */
+  public function buildOptionsForm() {
+    return [];
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function handle(array $documents, array $options) {
 
-    $options = array(
+    $options = [
       'format' => 'pdf',
       'header' => FALSE,
       'footer' => FALSE,
-      'filename' => 'Documentation_export_'.date('Ymd'),
-    );
+      'filename' => 'Documentation_export_' . date('Ymd'),
+    ];
 
     $options = array_merge($options, $options);
 
@@ -36,7 +44,7 @@ class OpenPDF extends DevdocsExportHandlerBase {
     $dd_base_path = DocsStream::basePath() . '/export/';
 
     $header_html = $footer_html = $css = '';
-    $pages = array();
+    $pages = [];
 
     // CSS.
     if (file_exists($dd_base_path . 'assets/inline_style.css')) {
@@ -79,7 +87,7 @@ class OpenPDF extends DevdocsExportHandlerBase {
     $dompdf->render();
     $content = $dompdf->output(['compress' => 0]);
     $filename = 'pdf-me.pdf';
-    $response = new \Symfony\Component\HttpFoundation\Response($content, 200, [
+    $response = new Response($content, 200, [
       'Content-Type' => 'application/pdf',
       'Cache-Control' => 'private',
       'Pragma' => 'no-cache',
