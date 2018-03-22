@@ -167,7 +167,7 @@ class DevDocsExportForm extends FormBase {
     $values = $form_state->getValues();
 
     $exportHandler = \Drupal::service('plugin.manager.devdocs_export_handler')
-      ->createInstance($values['export_handler'], ['export_options' => $values ? $values['export_handler_options'] : []]);
+      ->createInstance($values['export_handler'], ['export_options' => isset($values['export_handler_options']) ? $values['export_handler_options'] : []]);
     try {
       // Get array of exportable objects.
       $exportables = [];
