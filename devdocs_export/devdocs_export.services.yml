@@ -1,0 +1,4 @@
+services:
+  plugin.manager.devdocs_export_handler:
+    class: Drupal\devdocs_export\Plugin\DevdocsExportHandlerManager
+    parent: default_plugin_manager

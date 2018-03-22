@@ -1,23 +1,57 @@
 <?php
 
-/**
- * @file
- * Contains \Drupal\devdocs_export\Controller\DocsExport.
- */
-
 namespace Drupal\devdocs_export\Controller;
 
-use Drupal\devdocs\StreamWrapper\DocsStream;
 use Drupal\Core\Controller\ControllerBase;
-use Drupal\Core\Url;
 use Drupal\Component\Utility\UrlHelper;
-use Drupal\Core\File\FileSystem;
+use Drupal\Core\File\FileSystemInterface;
+use Drupal\devdocs_export\Plugin\DevdocsExportHandlerManager;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
- * Controller routines for page example routes.
+ * Docs export controller.
+ *
+ * @package Drupal\devdocs_export\Controller
  */
 class DocsExport extends ControllerBase {
+
+  /**
+   * Filesystem object.
+   *
+   * @var \Drupal\Core\File\FileSystemInterface
+   */
+  private $fileSystem;
+
+  /**
+   * Devdocs pdf handler plugin.
+   *
+   * @var \Drupal\devdocs_export\Plugin\DevdocsExportHandler\OpenPDF
+   */
+  private $PDFExportHandler;
+
+  /**
+   * DocsExport constructor.
+   *
+   * @param \Drupal\devdocs_export\Plugin\DevdocsExportHandlerManager $devdocsExportHandlerManager
+   *   Devdocs Handler Manager.
+   * @param \Drupal\Core\File\FileSystemInterface $fileSystem
+   *   Filesystem.
+   */
+  public function __construct(DevdocsExportHandlerManager $devdocsExportHandlerManager, FileSystemInterface $fileSystem) {
+    $this->PDFExportHandler = $devdocsExportHandlerManager->createInstance('open_pdf');
+    $this->fileSystem = $fileSystem;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container) {
+    return new static(
+      $container->get('plugin.manager.devdocs_export_handler'),
+      $container->get('file_system')
+    );
+  }
 
   /**
    * Constructs a page with descriptive content.
@@ -28,12 +62,13 @@ class DocsExport extends ControllerBase {
     $query = UrlHelper::filterQueryParameters(\Drupal::request()->query->all());
     $scheme = 'docs';
     $uri = $scheme . '://' . $query['file'];
-    if (file_stream_wrapper_valid_scheme($scheme) && file_exists($uri)) {
-      devdocs_export_render_pdf(array($uri), array('filename' => basename($uri). '_'.date('Ymd')));
+    if ($this->fileSystem->validScheme($scheme) && file_exists($uri)) {
+      $this->PDFExportHandler->handle([$uri], ['filename' => basename($uri) . '_' . date('Ymd')]);
     }
     else {
       throw new NotFoundHttpException();
     }
     exit();
   }
+
 }

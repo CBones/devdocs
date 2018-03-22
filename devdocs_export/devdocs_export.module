@@ -2,16 +2,13 @@
 
 /**
  * @file
- * Contains devdocs.module..
+ * Contains devdocs.module.
  */
 
 use Drupal\Core\Routing\RouteMatchInterface;
-use Michelf\MarkdownExtra;
-use Drupal\filter\FilterProcessResult;
-use Drupal\devdocs\StreamWrapper\DocsStream;
 use Drupal\Core\Render\Element;
 use Drupal\Core\Url;
-use Dompdf\Dompdf;
+use Drupal\Core\Link;
 
 /**
  * Implements hook_help().
@@ -38,8 +35,8 @@ function devdocs_export_form_devdocs_files_form_alter(&$form, &$form_state, $for
 
       $element = &$form['files'][$key];
       $title = $element['#title'];
-      $uri = parse_url($element['htabs']['edit_' . $title]['uri_' . $title]['#value'], PHP_URL_HOST)
-        . parse_url($element['htabs']['edit_' . $title]['uri_' . $title]['#value'], PHP_URL_PATH);
+      $uri = parse_url($element['htabs']['edit_' . $title]['uri_' . $title]['#value'], PHP_URL_HOST);
+      $uri .= parse_url($element['htabs']['edit_' . $title]['uri_' . $title]['#value'], PHP_URL_PATH);
 
       $url = file_create_url('docs/export/pdf');
       $url = Url::fromUri($url);
@@ -48,125 +45,16 @@ function devdocs_export_form_devdocs_files_form_alter(&$form, &$form_state, $for
           'file' => $uri,
         ],
         'attributes' => [
-          'class' => 'button'
-        ]
+          'class' => 'button',
+        ],
       ];
       $url->setOptions($link_options);
-      $link = \Drupal::l(t('PDF'), $url);
+      $link = Link::fromTextAndUrl(t('PDF'), $url);
       $element['htabs']['htabs_output']['export_pdf'] = [
         '#markup' => $link,
         '#group' => 'htabs',
-        '#weight' => '-10'
+        '#weight' => '-10',
       ];
     }
   }
-}
-
-
-function devdocs_export_render_pdf($documents = array(), $options_user = array()) {
-
-  $options = array(
-    'format' => 'pdf',
-    'header' => FALSE,
-    'footer' => FALSE,
-    'filename' => 'Documentation_export_'.date('Ymd'),
-  );
-
-  // $formats = array(
-  //   'docx' => array(
-  //     'extension' => 'docx',
-  //     'writer' => 'Word2007',
-  //     'content_type' => 'Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  //   ),
-  //   'odt' => array(
-  //     'extension' => 'odt',
-  //     'writer' => 'ODText',
-  //     'content_type' => 'Content-Type: application/vnd.oasis.opendocument.text',
-  //   ),
-  //   'pdf' => array(
-  //     'extension' => 'pdf',
-  //     'writer' => 'PDF',
-  //     'content_type' => 'Content-type: application/pdf',
-  //   ),
-  // );
-
-  // $format = $formats[$options['format']];
-
-  $options = array_merge($options, $options_user);
-
-  // $markdownParser = new \Michelf\MarkdownExtra();
-  $dd_base_path = DocsStream::basePath() . '/export/';
-
-  $header_html = $footer_html = $css = '';
-  $pages = array();
-
-  // CSS
-  if (file_exists($dd_base_path . 'assets/inline_style.css')) {
-    $css = '<link type="text/css" href="assets/inline_style.css" rel="stylesheet" />';
-  }
-
-  // header
-  if ($options['header'] && file_exists($dd_base_path . 'assets/header.md')) {
-    $header_markdown = file_get_contents($dd_base_path . 'assets/header.md');
-    $header_markdown = MarkdownExtra::defaultTransform($header_markdown);
-    $header_html = new FilterProcessResult($header_markdown);
-  }
-
-  // Footer
-  if ($options['footer'] && file_exists($dd_base_path . 'assets/footer.md')) {
-    $footer_markdown = file_get_contents($dd_base_path . 'assets/footer.md');
-    $footer_markdown = MarkdownExtra::defaultTransform($footer_markdown);
-    $footer_html = new FilterProcessResult($footer_markdown);
-  }
-
-  // Generate pages
-  foreach ($documents as $document) {
-
-    $markdown = file_get_contents($document);
-    $markdown = MarkdownExtra::defaultTransform($markdown);
-    $pages[] = new FilterProcessResult($markdown);
-  }
-
-  $html = '<html><head>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-    '
-    .$css.
-    '
-    </head>
-    <body>'
-    .$header_html
-    .$footer_html
-    . implode('<div style="page-break-before: always;"></div>', $pages)
-    .'</body></html>';
-
-  // render document
-  // \PhpOffice\PhpWord\Autoloader::register();
-  // $phpWord = new \PhpOffice\PhpWord\PhpWord();
-  // $section = $phpWord->createSection();
-  // \PhpOffice\PhpWord\Shared\Html::addHtml($section, $html, TRUE);
-  // $file = 'Documentation_export_'.date('Ymd').'.'. $format['extension'] ;
-  // header("Content-Description: File Transfer");
-  // header('Content-Disposition: attachment; filename="' . $file . '"');
-  // header($format['content_type']);
-  // header('Content-Transfer-Encoding: binary');
-  // header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
-  // header('Expires: 0');
-
-  // if ($options['format'] == 'pdf') {
-  //   \PhpOffice\PhpWord\Settings::setPdfRendererPath($dl['library path']);
-  //   \PhpOffice\PhpWord\Settings::setPdfRendererName('DomPDF');
-  // }
-
-  // $xmlWriter = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, $format['writer']);
-
-  // $xmlWriter->save("php://output");
-
-  // drupal_exit();
-
-  $dompdf = new Dompdf();
-  $dompdf->setBasePath($dd_base_path);
-  $dompdf->loadHtml($html, 'UTF-8');
-  $dompdf->setPaper("A4");
-  $dompdf->render();
-  $dompdf->stream($options['filename'].'.pdf');
 }
