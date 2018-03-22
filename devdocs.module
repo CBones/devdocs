@@ -97,7 +97,10 @@ function _devdocs_file_download() {
   $scheme = array_shift($args);
   $target = implode('/', $args);
   $uri = $scheme . '://' . $target;
-  $headers = array();
+  $headers = array(
+    'Content-Type' => file_get_mimetype($uri),
+    'Content-Length' => filesize($uri),
+  );
 
   $GLOBALS['devel_shutdown'] = FALSE;
 
