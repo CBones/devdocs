@@ -49,7 +49,7 @@ function devdocs_export_form_devdocs_files_form_alter(&$form, &$form_state, $for
         ],
       ];
       $url->setOptions($link_options);
-      $link = Link::fromTextAndUrl(t('PDF'), $url);
+      $link = Link::fromTextAndUrl(t('PDF'), $url)->toString();
       $element['htabs']['htabs_output']['export_pdf'] = [
         '#markup' => $link,
         '#group' => 'htabs',
