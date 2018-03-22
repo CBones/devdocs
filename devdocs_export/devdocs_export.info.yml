@@ -1,5 +1,5 @@
 name: Developer Documentation Export
-description: Developer Documentation Export to PDF/HTML
+description: Developer Documentation Export
 package: Documentation
 
 type: module
